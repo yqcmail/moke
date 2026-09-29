@@ -49,9 +49,9 @@ object MoshBootstrap {
         locale: String = "en_US.UTF-8",
         startupCommand: String? = null,
     ): String = buildString {
-        append("MOSH_SERVER_NETWORK_TMOUT=")
+        append("env MOSH_SERVER_NETWORK_TMOUT=")
         append(SERVER_NETWORK_TMOUT_SECONDS)
-        append(" mosh-server new -s -c 256 -l LANG=")
+        append(" mosh-server new -c 256 -l LANG=")
         append(locale)
         startupCommand?.takeIf { it.isNotBlank() }?.let {
             append(" -- ")

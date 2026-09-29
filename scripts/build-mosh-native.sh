@@ -21,8 +21,13 @@ if [ -z "$NDK" ]; then
   NDK="$(ls -d "$HOME"/android-sdk/ndk/29.* 2>/dev/null | head -1 || true)"
 fi
 [ -n "$NDK" ] && [ -d "$NDK" ] || { echo "找不到 NDK，请设置 ANDROID_NDK"; exit 1; }
-HOSTTAG="$(uname | tr '[:upper:]' '[:lower:]')-x86_64"
+if [ -d "$NDK/toolchains/llvm/prebuilt/windows-x86_64" ]; then
+  HOSTTAG="windows-x86_64"
+else
+  HOSTTAG="$(uname | tr '[:upper:]' '[:lower:]')-x86_64"
+fi
 TC="$NDK/toolchains/llvm/prebuilt/$HOSTTAG"
+
 
 WORK="$REPO_ROOT/build/mosh-native"
 RJYO="$WORK/rjyo/android-libs"
@@ -50,6 +55,8 @@ done
 cp -f "$INC/config.h"  "$MOSH/src/include/config.h" 2>/dev/null || true
 cp -f "$INC/version.h" "$MOSH/src/frontend/version.h" 2>/dev/null || true
 cp -f "$INC"/hostinput.pb.h "$INC"/transportinstruction.pb.h "$INC"/userinput.pb.h "$MOSH/src/protobufs/" 2>/dev/null || true
+# 允许 mosh-client 解析域名（去掉上游强制的 AI_NUMERICHOST 限制）
+sed -i 's/AI_NUMERICHOST | AI_NUMERICSERV/AI_NUMERICSERV/' "$MOSH/src/network/network.cc" 2>/dev/null || true
 printf '#pragma once\n#include <string>\n#include <vector>\n#include <list>\n#include <map>\n#include <deque>\nusing namespace std;\n' > "$WORK/prelude.h"
 
 for ABI in "${ABIS[@]}"; do

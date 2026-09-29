@@ -5,7 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MoshBootstrapTest {
-    private val prefix = "MOSH_SERVER_NETWORK_TMOUT=86400 mosh-server new -s -c 256 -l LANG=en_US.UTF-8"
+    private val prefix = "env MOSH_SERVER_NETWORK_TMOUT=86400 mosh-server new -c 256 -l LANG=en_US.UTF-8"
 
     @Test
     fun `starts normal mosh shell when no command is supplied`() {
@@ -16,7 +16,7 @@ class MoshBootstrapTest {
     fun `bounds the lifetime of a server whose client never comes back`() {
         // 失联的 mosh-server 会一直占着进程和 UDP 端口（漫游语义）。正常关会话由 MoshTransport
         // 的退出序列收掉；这条前缀是应用被强停时的兜底，缺了它服务器上就会无限累积。
-        assertTrue(MoshBootstrap.serverCommand().startsWith("MOSH_SERVER_NETWORK_TMOUT="))
+        assertTrue(MoshBootstrap.serverCommand().startsWith("env MOSH_SERVER_NETWORK_TMOUT="))
         assertEquals(86_400, MoshBootstrap.SERVER_NETWORK_TMOUT_SECONDS)
     }
 

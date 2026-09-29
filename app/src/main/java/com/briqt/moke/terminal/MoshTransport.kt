@@ -4,6 +4,7 @@ import android.content.Context
 import com.briqt.moke.R
 import com.briqt.moke.localized
 import android.os.ParcelFileDescriptor
+import android.util.Log
 import com.briqt.moke.data.Host
 import com.termux.terminal.JNI
 import com.termux.terminal.TerminalSession
@@ -13,6 +14,8 @@ import net.schmizz.sshj.common.IOUtils
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
@@ -47,7 +50,15 @@ class MoshTransport(
         ?: host.effectiveStartupCommand.ifBlank { null }
 
     private val appContext = context.applicationContext
-    private val nativeLibDir = appContext.applicationInfo.nativeLibraryDir
+
+    private val nativeLibDir: String
+        get() {
+            val base = appContext.applicationInfo.nativeLibraryDir
+            if (File(base, "libmosh-client.so").exists()) return base
+            val arm64 = File(base, "arm64")
+            if (File(arm64, "libmosh-client.so").exists()) return arm64.absolutePath
+            return base
+        }
 
     private var pfd: ParcelFileDescriptor? = null
     private var ptyFd: Int = -1
@@ -74,9 +85,10 @@ class MoshTransport(
                 // 1) SSH 引导：执行 mosh-server new，解析 MOSH CONNECT
                 feed(session, "\r\n" + appContext.localized(R.string.mosh_bootstrapping) + "\r\n")
                 val bootstrap = sshBootstrap()
-                val connect = MoshBootstrap.parse(bootstrap)
+                Log.i("MoshTransport", "Mosh bootstrap output: [${bootstrap.output}], remoteIp: ${bootstrap.remoteIp}")
+                val connect = MoshBootstrap.parse(bootstrap.output)
                     ?: throw IllegalStateException(
-                        appContext.localized(R.string.mosh_bootstrap_unparsed, bootstrap.trim())
+                        appContext.localized(R.string.mosh_bootstrap_unparsed, bootstrap.output.trim())
                     )
                 feed(session, appContext.localized(R.string.mosh_client_starting, connect.port) + "\r\n")
 
@@ -95,10 +107,16 @@ class MoshTransport(
                     "HOME=${appContext.filesDir.absolutePath}",
                     "PATH=/system/bin",
                 )
+                val targetHost = if (jumpHost == null && !bootstrap.remoteIp.isNullOrBlank()) {
+                    bootstrap.remoteIp
+                } else {
+                    runCatching { InetAddress.getByName(host.host).hostAddress }.getOrNull() ?: host.host
+                }
+                Log.i("MoshTransport", "Starting mosh-client: targetHost=$targetHost (host=${host.host}), port=${connect.port}")
                 val pidArr = IntArray(1)
                 val fd = JNI.createSubprocess(
                     bin, appContext.filesDir.absolutePath,
-                    arrayOf("mosh-client", host.host, connect.port.toString()),
+                    arrayOf("mosh-client", targetHost, connect.port.toString()),
                     env, pidArr, rows, columns, cellWidthPixels, cellHeightPixels,
                 )
                 ptyFd = fd
@@ -116,6 +134,7 @@ class MoshTransport(
                     } catch (_: Throwable) {
                         if (closed) 0 else 1
                     }
+                    Log.i("MoshTransport", "mosh-client exited with code $code")
                     childExited = true
                     finish(session, code)
                     runCatching { pfd?.close() }
@@ -162,6 +181,7 @@ class MoshTransport(
                     }
                 }
             } catch (e: Throwable) {
+                Log.e("MoshTransport", "Mosh connection failed: ${e.message}", e)
                 // 捕获 Throwable（含 UnsatisfiedLinkError 等 Error），保证任何 native/引导失败都只是终端里报错，绝不闪退。
                 if (!closed && !childExited) {
                     feed(
@@ -182,14 +202,22 @@ class MoshTransport(
         }, "moke-mosh-${host.host}").start()
     }
 
+    private data class BootstrapResult(val output: String, val remoteIp: String?)
+
     /** 引导只跑一次，用完即弃的短连接（此时控制连接还没有存在的理由）。 */
-    private fun sshBootstrap(): String {
+    private fun sshBootstrap(): BootstrapResult {
         return SshConnector(appContext).use(host, jumpHost) { client ->
+            val remoteIp = runCatching {
+                (client.remoteSocketAddress as? InetSocketAddress)?.address?.hostAddress
+            }.getOrNull()
             client.startSession().use { s ->
                 val cmd = s.exec(MoshBootstrap.serverCommand(startupCommand = effectiveStartup))
                 val stdout = IOUtils.readFully(cmd.inputStream).toString()
+                val stderr = IOUtils.readFully(cmd.errorStream).toString()
                 cmd.join()
-                stdout
+                Log.i("MoshTransport", "sshBootstrap exitStatus=${cmd.exitStatus}, stdout=[$stdout], stderr=[$stderr]")
+                val output = if (stdout.isNotBlank()) stdout else stderr
+                BootstrapResult(output, remoteIp)
             }
         }
     }
@@ -331,6 +359,7 @@ class MoshTransport(
     }
 
     private fun feed(session: TerminalSession, msg: String) {
+        Log.i("MoshTransport", "feed: ${msg.trim()}")
         val b = msg.toByteArray(StandardCharsets.UTF_8)
         session.processToEmulator(b, b.size)
     }
