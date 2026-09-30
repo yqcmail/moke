@@ -82,6 +82,7 @@ fun HostEditScreen(
     var loginCommand by remember { mutableStateOf(base.loginCommand) }
     var group by remember { mutableStateOf(base.group) }
     var persistence by remember { mutableStateOf(base.persistence) }
+    var tmuxSessionName by remember { mutableStateOf(base.tmuxSessionName.ifBlank { "main" }) }
     var fingerprintCleared by remember { mutableStateOf(false) }
 
     // 跳板机候选：其它主机（排除自身，避免自引用）。
@@ -276,6 +277,14 @@ fun HostEditScreen(
                 onSelect = { persistence = SessionPersistence.valueOf(it) },
             )
             if (persistence == SessionPersistence.TMUX) {
+                OutlinedTextField(
+                    value = tmuxSessionName,
+                    onValueChange = { tmuxSessionName = it },
+                    label = { Text(stringResource(R.string.tmux_name_hint)) },
+                    placeholder = { Text("main") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.Top,
@@ -376,7 +385,7 @@ fun HostEditScreen(
                                 persistence = persistence,
                                 // 关掉持久化时一并忘记记住的会话名，避免下次重新开启后悄悄附加到旧会话。
                                 tmuxSessionName = if (persistence == SessionPersistence.TMUX) {
-                                    base.tmuxSessionName
+                                    tmuxSessionName.trim().ifBlank { "main" }
                                 } else {
                                     ""
                                 },

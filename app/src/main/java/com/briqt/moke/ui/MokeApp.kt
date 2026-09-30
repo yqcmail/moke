@@ -144,7 +144,16 @@ fun MokeApp(vm: MokeViewModel = viewModel()) {
             onDeleteHost = { vm.delete(it) },
             onConnectHost = { host -> screen = Screen.Terminal(vm.openSession(host)) },
             onReorderHosts = { vm.reorderHosts(it) },
-            onOpenSession = { id -> screen = Screen.Terminal(id) },
+            onOpenSession = { id ->
+                val target = vm.sessions.get(id)
+                if (target != null && !target.alive.value) {
+                    val newId = vm.reconnectSession(target)
+                    vm.closeSession(target.id)
+                    screen = Screen.Terminal(newId)
+                } else {
+                    screen = Screen.Terminal(id)
+                }
+            },
             onCloseSession = { id -> vm.closeSession(id) },
             onCloseEndedSessions = { vm.closeEndedSessions() },
             onDuplicateSession = { id -> vm.duplicateSession(id) },

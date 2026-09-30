@@ -17,6 +17,9 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
 import java.util.UUID
 
 /**
@@ -123,6 +126,104 @@ class SessionManager(context: Context) {
     private val _sessions = MutableStateFlow<List<TermSession>>(emptyList())
     val sessions: StateFlow<List<TermSession>> = _sessions.asStateFlow()
 
+    private val sessionsFile = File(appContext.filesDir, "active_sessions.json")
+
+    private fun persistSessions() {
+        runCatching {
+            val array = JSONArray()
+            for (ts in _sessions.value) {
+                val obj = JSONObject().apply {
+                    put("id", ts.id)
+                    put("hostId", ts.host.id)
+                    put("title", ts.title.value)
+                    put("customTitle", ts.customTitle.value ?: "")
+                    put("remoteTmuxId", ts.remoteTmuxId.value ?: "")
+                    put("remoteTmuxName", ts.remoteTmuxName.value ?: "")
+                    put("startupCommand", ts.startupCommand ?: "")
+                    put("startedAt", ts.startedAt)
+                }
+                array.put(obj)
+            }
+            val tmp = File(appContext.filesDir, "active_sessions.json.tmp")
+            tmp.writeText(array.toString())
+            tmp.renameTo(sessionsFile)
+        }
+    }
+
+    private class RestoredTransport : TerminalTransport {
+        override fun start(session: TerminalSession, columns: Int, rows: Int, cellWidthPixels: Int, cellHeightPixels: Int) {}
+        override fun write(data: ByteArray, offset: Int, count: Int) {}
+        override fun updateSize(columns: Int, rows: Int, cellWidthPixels: Int, cellHeightPixels: Int) {}
+        override fun close() {}
+    }
+
+    /** 冷启动时从本地文件恢复上次未手动关闭的会话记录（状态为已断开，点击可重连）。 */
+    fun restore(hosts: List<Host>) {
+        if (_sessions.value.isNotEmpty() || !sessionsFile.exists()) return
+        runCatching {
+            val raw = sessionsFile.readText()
+            val array = JSONArray(raw)
+            val restored = mutableListOf<TermSession>()
+            val hostMap = hosts.associateBy { it.id }
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val hostId = obj.optString("hostId")
+                val host = hostMap[hostId] ?: continue
+                val id = obj.optString("id").ifBlank { UUID.randomUUID().toString() }
+                val titleStr = obj.optString("title").ifBlank { baseTitleOf(host) }
+                val custom = obj.optString("customTitle").ifBlank { null }
+                val remoteTmuxId = obj.optString("remoteTmuxId").ifBlank { null }
+                val remoteTmuxName = obj.optString("remoteTmuxName").ifBlank { null }
+                val startupCmd = obj.optString("startupCommand").ifBlank { null }
+                val startedAt = obj.optLong("startedAt", System.currentTimeMillis())
+
+                val titleBase = titleStr
+                val title = MutableStateFlow(titleStr)
+                val customTitle = MutableStateFlow(custom)
+                val displayTitle = MutableStateFlow(TermSession.composeTitle(host.useMosh, titleStr, custom, titleBase))
+                val alive = MutableStateFlow(false)
+                val latency = MutableStateFlow<Int?>(null)
+                val controller = TerminalController(
+                    context = appContext,
+                    onFinished = { alive.value = false; latency.value = null },
+                    onTitle = { t -> title.value = if (t.isNullOrBlank()) titleBase else t },
+                )
+                val transport = RestoredTransport()
+                val session = TerminalSession(transport, 2000, controller)
+                val ts = TermSession(
+                    id = id,
+                    host = host,
+                    controller = controller,
+                    session = session,
+                    transport = transport,
+                    jumpHost = null,
+                    startupCommand = startupCmd,
+                    title = title.asStateFlow(),
+                    baseTitle = titleBase,
+                    customTitle = customTitle,
+                    displayTitleState = displayTitle,
+                    alive = alive.asStateFlow(),
+                    latency = latency.asStateFlow(),
+                    remoteTmuxId = MutableStateFlow(remoteTmuxId),
+                    remoteTmuxName = MutableStateFlow(remoteTmuxName),
+                    startedAt = startedAt,
+                )
+                session.sessionStatusText = object : TerminalSession.StatusText {
+                    override fun connectFailed(reason: String): String =
+                        TerminalSession.statusText.connectFailed(reason)
+                    override fun sessionEnded(exitCode: Int): String =
+                        TerminalSession.statusText.sessionEnded(exitCode)
+                }
+                controller.onActivity = { ts.lastActivityAt = System.currentTimeMillis() }
+                restored.add(ts)
+            }
+            if (restored.isNotEmpty()) {
+                _sessions.value = restored
+                refreshDisplayTitles()
+            }
+        }
+    }
+
     /**
      * 为主机新建一个会话（传输在首次 attach 到已测量的 View 时才真正 start）。[jumpHost] 为已解析的跳板机。
      *
@@ -209,6 +310,7 @@ class SessionManager(context: Context) {
         // 有输出即刷新会话最后活动时间（供"更新时间"排序）。
         controller.onActivity = { ts.lastActivityAt = System.currentTimeMillis() }
         _sessions.update { it + ts }
+        persistSessions()
         combine(title, customTitle) { _, _ -> Unit }
             .onEach { refreshDisplayTitles() }
             .launchIn(scope)
@@ -346,6 +448,7 @@ class SessionManager(context: Context) {
             val rest = list.filter { it.id !in orderedIds }
             (front + rest).takeIf { it.size == list.size } ?: list
         }
+        persistSessions()
     }
 
     /** 关闭并从列表移除（关传输幂等）。 */
@@ -353,6 +456,7 @@ class SessionManager(context: Context) {
         val ts = get(id) ?: return
         runCatching { ts.session.finishIfRunning() }
         _sessions.update { list -> list.filterNot { it.id == id } }
+        persistSessions()
         refreshDisplayTitles()
     }
 }

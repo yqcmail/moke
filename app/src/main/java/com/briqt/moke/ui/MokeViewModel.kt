@@ -69,6 +69,16 @@ class MokeViewModel(app: Application) : AndroidViewModel(app) {
     val hosts: StateFlow<List<Host>> = store.hosts
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    init {
+        viewModelScope.launch {
+            store.hosts.collect { hostList ->
+                if (hostList.isNotEmpty()) {
+                    sessions.restore(hostList)
+                }
+            }
+        }
+    }
+
     /**
      * 存量凭据解不开（Keystore 密钥失效，典型是整机备份恢复到新机）。
      * 连接页据此说清原因——否则用户只看到一个空列表，会以为数据自己没了。
@@ -540,19 +550,18 @@ class MokeViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun openSession(host: Host): String {
         touchHost(host)
-        val remembered = host.tmuxSessionName
-            .takeIf { host.persistence == SessionPersistence.TMUX && it.isNotBlank() }
+        val effectiveTmux = if (host.persistence == SessionPersistence.TMUX) {
+            host.tmuxSessionName.trim().ifBlank { "main" }
+        } else null
         val ts = sessions.open(
             host = host,
             jumpHost = resolveJump(host),
-            remoteTmuxName = remembered,
-            startupCommand = remembered?.let { Tmux.attachOrCreateCommand(it) },
+            remoteTmuxName = effectiveTmux,
+            startupCommand = effectiveTmux?.let { Tmux.attachOrCreateCommand(it) },
         )
         ensureSessionService()
-        if (remembered != null) {
-            confirmTmuxAttach(ts, remembered)
-        } else if (host.persistence == SessionPersistence.TMUX) {
-            requestTmuxPickerWhenReady(ts)
+        if (effectiveTmux != null) {
+            confirmTmuxAttach(ts, effectiveTmux)
         }
         return ts.id
     }

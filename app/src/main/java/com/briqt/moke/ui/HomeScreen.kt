@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Terminal
@@ -854,9 +855,14 @@ private fun SessionCard(
                         }
                     }
                 }
-                // 复制：用同一主机再开一个独立会话（新连接，非克隆 live 状态）；沿用标题并加不重复标记。
-                IconButton(onClick = onDuplicate) {
-                    Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.duplicate_session), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (!alive) {
+                    IconButton(onClick = onOpen) {
+                        Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.reconnect), tint = MaterialTheme.colorScheme.primary)
+                    }
+                } else {
+                    IconButton(onClick = onDuplicate) {
+                        Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.duplicate_session), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
                 IconButton(onClick = onClose) {
                     Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.close_session), tint = MaterialTheme.colorScheme.onSurfaceVariant)
