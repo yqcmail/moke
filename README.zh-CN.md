@@ -41,6 +41,26 @@ Moke 是一个 Android 原生 SSH / mosh 终端。它在 app 内直接连接远�
 
 允许"安装未知来源应用"后安装。发布包使用固定签名，可覆盖升级。
 
+## 服务端建议配置（tmux 与会话持久化）
+
+为获得最佳的移动端长期保活与断线重连体验，建议在服务端进行以下简单配置：
+
+### 1. 安装 tmux 与全局配置
+在服务器安装 `tmux`，并将其配置为支持大回滚缓冲区（50,000 行）与鼠标/触控滚动（方便在手机屏幕上单指滑屏浏览历史）：
+```bash
+# Ubuntu / Debian
+sudo apt update && sudo apt install -y tmux
+
+# 一键写入全局配置（对系统所有用户生效）
+printf "set -g history-limit 50000\nset -g mouse on\n" | sudo tee -a /etc/tmux.conf
+```
+
+### 2. 启用用户进程常驻（防止注销时被清理）
+防止 systemd 在 SSH 断开或注销时清理后台的 tmux 进程或长时间运行的任务：
+```bash
+sudo loginctl enable-linger $USER
+```
+
 ## 模块
 
 | 模块 | 说明 | 许可 |

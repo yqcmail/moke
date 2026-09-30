@@ -41,6 +41,26 @@ From [Releases](https://github.com/briqt/moke/releases), pick one:
 
 Allow "install from unknown sources" and install. Release builds use a stable signature, so upgrades install over the top.
 
+## Server Recommendations (tmux & Session Persistence)
+
+For the best mobile experience with long-lived sessions and seamless reconnection, configure your remote server with:
+
+### 1. Install tmux and configure globally
+Install `tmux` on the server, and configure a larger scrollback buffer (50,000 lines) plus mouse/touch scrolling (allows smooth swipe-to-scroll on mobile):
+```bash
+# Ubuntu / Debian
+sudo apt update && sudo apt install -y tmux
+
+# Write global config for all users
+printf "set -g history-limit 50000\nset -g mouse on\n" | sudo tee -a /etc/tmux.conf
+```
+
+### 2. Enable user lingering (prevent systemd cleanup)
+Prevent systemd from terminating background tmux sessions or jobs when logging out:
+```bash
+sudo loginctl enable-linger $USER
+```
+
 ## Modules
 
 | Module | Description | License |
