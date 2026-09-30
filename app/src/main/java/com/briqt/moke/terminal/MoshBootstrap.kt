@@ -31,10 +31,10 @@ object MoshBootstrap {
      * {@link MoshTransport#close} 让 mosh-client 走退出协议收掉远端；这里是兜底：应用被强停/
      * 进程被杀、退出序列没送达时，远端最终也会自己消失。
      *
-     * 取 24h：远超关屏、切网、Doze 等真实断流窗口（客户端每 3s 一次心跳），又能封住无限累积。
+     * 取 15 天（1,296,000s）：支持超长周期（比如15天）断网/休眠后重连保持原终端，同时又有最终兜底避免服务器永久残留。
      * tmux 会话不受影响——它活在独立的 tmux server 里，与 mosh 无关。
      */
-    const val SERVER_NETWORK_TMOUT_SECONDS = 86_400
+    const val SERVER_NETWORK_TMOUT_SECONDS = 1_296_000
 
     /**
      * 生成 mosh-server 引导命令。locale 传递关键（否则 UTF-8 宽字符会乱）。
