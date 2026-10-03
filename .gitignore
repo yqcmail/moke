@@ -11,8 +11,10 @@ captures/
 *.ap_
 *.dex
 
-# mosh native 产物：由 scripts/build-mosh-native.sh 生成（GPLv3 二进制不入库）
-app/src/main/jniLibs/**/*.so
+# mosh native（arm64-v8a 的 libmosh-client.so / libtermux.so）随仓库提交，本地打包不必先编 native。
+# 其它 ABI 仍由 scripts/build-mosh-native.sh 生成，不入库。
+app/src/main/jniLibs/armeabi-v7a/*.so
+app/src/main/jniLibs/x86_64/*.so
 
 # maple 发行变体内置字体：由 scripts/fetch-maple-font.sh 下载提取（OFL，20MB，不入库）
 app/src/maple/res/font/maple_mono.ttf

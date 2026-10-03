@@ -375,7 +375,7 @@
     <string name="scroll_mode_smart">Smart</string>
     <string name="scroll_mode_wheel">Always send wheel</string>
     <string name="scroll_mode_arrows">Always send arrow keys</string>
-    <string name="scroll_mode_hint">Smart (recommended): sends wheel events when the remote enables mouse scrolling; scrolls local history for ordinary output; sends nothing when it cannot tell, so arrow keys never walk your command history.\nAlways send wheel: worth trying when the remote supports the mouse but has not enabled tracking on the current screen.\nAlways send arrow keys: use it when pagers (less, man, vim) will not scroll — especially over mosh, which carries no information about the foreground program, so only you can decide.</string>
+    <string name="scroll_mode_hint">Smart (recommended): if output has already scrolled off the screen, swipe scrolls that local history and does not send arrow keys — including inside tmux. Wheel events are sent only when a full-screen program is tracking the mouse and there is no local history to read. When there is nothing to scroll and the remote did not ask for the mouse, nothing is sent.\nAlways send wheel: worth trying when the remote supports the mouse but has not enabled tracking on the current screen.\nAlways send arrow keys: use it when pagers (less, man, vim) should move instead of the local display — especially over mosh, which carries no information about the foreground program, so only you can decide.</string>
     <string name="include_prerelease">Include pre-releases</string>
     <string name="include_prerelease_sub">Count rc pre-releases when checking for updates. They carry new features early and may be unstable.</string>
     <string name="github_repo">GitHub repository</string>
