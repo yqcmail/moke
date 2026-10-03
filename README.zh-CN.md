@@ -81,7 +81,7 @@ sudo loginctl enable-linger $USER
 ./scripts/fetch-maple-font.sh && ./gradlew assembleMapleDebug
 ```
 
-mosh native 产物由 [`scripts/build-mosh-native.sh`](scripts/build-mosh-native.sh) 从公开源码（mosh 1.4.0 + rjyo/mosh-android 预编译库）复现构建，需 NDK r29；GPLv3 二进制不入库。maple 变体内置字体由 [`scripts/fetch-maple-font.sh`](scripts/fetch-maple-font.sh) 获取（OFL，不入库）。
+mosh native 产物由 [`scripts/build-mosh-native.sh`](scripts/build-mosh-native.sh) 从公开源码（mosh 1.4.0 + rjyo/mosh-android 预编译库）复现构建，需 NDK r29 才能重新编译。arm64-v8a 的二进制已入库，普通打包就会带上 mosh。maple 变体内置字体由 [`scripts/fetch-maple-font.sh`](scripts/fetch-maple-font.sh) 获取（OFL，不入库）。
 
 ## 反馈
 

@@ -82,7 +82,7 @@ Requires JDK 17 + Android SDK (compileSdk 35 / build-tools 35). Create `local.pr
 ./scripts/fetch-maple-font.sh && ./gradlew assembleMapleDebug
 ```
 
-The mosh native artifacts are reproducibly built by [`scripts/build-mosh-native.sh`](scripts/build-mosh-native.sh) from public sources (mosh 1.4.0 + rjyo/mosh-android prebuilt libs); NDK r29 is required, and the GPLv3 binaries are not checked in. The `maple` flavor's bundled font is fetched by [`scripts/fetch-maple-font.sh`](scripts/fetch-maple-font.sh) (OFL, not checked in).
+The mosh native artifacts are reproducibly built by [`scripts/build-mosh-native.sh`](scripts/build-mosh-native.sh) from public sources (mosh 1.4.0 + rjyo/mosh-android prebuilt libs); NDK r29 is required to rebuild them. The arm64-v8a binaries are checked in so a normal APK build includes mosh. The `maple` flavor's bundled font is fetched by [`scripts/fetch-maple-font.sh`](scripts/fetch-maple-font.sh) (OFL, not checked in).
 
 ## Feedback
 

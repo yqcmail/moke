@@ -2,7 +2,7 @@
 # 构建 moke 的 mosh native 产物（可复现）：
 #   - libtermux.so      : forkpty JNI（源 terminal-emulator/src/main/jni/termux.c，Apache-2.0）
 #   - libmosh-client.so : mosh-client 可执行文件（mosh 1.4.0 前端 + rjyo/mosh-android 预编译静态库，GPLv3）
-# 产物输出到 app/src/main/jniLibs/<abi>/（该目录下的 *.so 不入库，见 .gitignore）。
+# 产物输出到 app/src/main/jniLibs/<abi>/。arm64-v8a 已入库；其它 ABI 仍被 .gitignore 忽略。
 #
 # 依赖：Android NDK r29（或兼容）、curl、tar、git。
 # 用法：ANDROID_NDK=/path/to/ndk ./scripts/build-mosh-native.sh [abi ...]
