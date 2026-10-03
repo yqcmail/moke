@@ -38,6 +38,20 @@ public class TerminalTest extends TerminalTestCase {
 		assertForegroundColorAt(0, 0, 113);
 		assertForegroundColorAt(1, 0, 114);
 		assertForegroundColorAt(2, 0, 115);
+		// Lines that scrolled off the alternate screen stay locally reviewable.
+		assertHistoryStartsWith("2  ", "1  ");
+	}
+
+	public void testAltBufferScrollbackClearedOnReentry() {
+		withTerminalSized(3, 3).enterString("\033[?1049h");
+		enterString("a\r\nb\r\nc\r\nd");
+		assertLinesAre("b  ", "c  ", "d  ");
+		assertHistoryStartsWith("a  ");
+		// A new full-screen program must not inherit the previous one's history.
+		enterString("\033[?1049l\033[?1049h");
+		assertEquals(0, mTerminal.getScreen().getActiveTranscriptRows());
+		enterString("z\r\n");
+		assertEquals(0, mTerminal.getScreen().getActiveTranscriptRows());
 	}
 
 	public void testMouseClick() throws Exception {

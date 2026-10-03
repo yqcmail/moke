@@ -227,7 +227,10 @@ public final class TerminalBuffer {
             mScreenFirstRow += shiftDownOfTopRow;
             mScreenFirstRow = (mScreenFirstRow < 0) ? (mScreenFirstRow + mTotalRows) : (mScreenFirstRow % mTotalRows);
             mTotalRows = newTotalRows;
-            mActiveTranscriptRows = altScreen ? 0 : Math.max(0, mActiveTranscriptRows + shiftDownOfTopRow);
+            // Alternate screen used to drop its transcript on resize, which threw away lines
+            // the user had already seen. Keep them on both buffers. `altScreen` stays in the
+            // signature for callers; it no longer clears history.
+            mActiveTranscriptRows = Math.max(0, mActiveTranscriptRows + shiftDownOfTopRow);
             cursor[1] -= shiftDownOfTopRow;
             mScreenRows = newRows;
         } else {

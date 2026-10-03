@@ -199,9 +199,13 @@ public final class TerminalView extends View {
                 // Do not start scrolling until last fling has been taken care of:
                 if (!mScroller.isFinished()) return true;
 
-                final boolean mouseTrackingAtStartOfFling = mEmulator.isMouseTrackingActive();
+                // 惯性跟手指滑动走同一套决策。有本地历史时即便远端开着鼠标也滚本地，
+                // 不能再按「开了鼠标跟踪」把 fling 变成一串滚轮/方向键。
+                final int flingAction = mokeScrollAction();
+                final boolean remoteFling = flingAction == MokeScroll.ACTION_WHEEL
+                    || flingAction == MokeScroll.ACTION_ARROWS;
                 float SCALE = 0.25f;
-                if (mouseTrackingAtStartOfFling) {
+                if (remoteFling) {
                     mScroller.fling(0, 0, 0, -(int) (velocityY * SCALE), 0, 0, -mEmulator.mRows / 2, mEmulator.mRows / 2);
                 } else {
                     mScroller.fling(0, mTopRow, 0, -(int) (velocityY * SCALE), 0, 0, -mEmulator.getScreen().getActiveTranscriptRows(), 0);
@@ -212,14 +216,16 @@ public final class TerminalView extends View {
 
                     @Override
                     public void run() {
-                        if (mouseTrackingAtStartOfFling != mEmulator.isMouseTrackingActive()) {
+                        int now = mokeScrollAction();
+                        boolean remoteNow = now == MokeScroll.ACTION_WHEEL || now == MokeScroll.ACTION_ARROWS;
+                        if (remoteNow != remoteFling) {
                             mScroller.abortAnimation();
                             return;
                         }
                         if (mScroller.isFinished()) return;
                         boolean more = mScroller.computeScrollOffset();
                         int newY = mScroller.getCurrY();
-                        int diff = mouseTrackingAtStartOfFling ? (newY - mLastY) : (newY - mTopRow);
+                        int diff = remoteFling ? (newY - mLastY) : (newY - mTopRow);
                         doScroll(e2, diff);
                         mLastY = newY;
                         if (more) post(this);
@@ -645,19 +651,26 @@ public final class TerminalView extends View {
      * <p>moke: 决策本身抽到 {@link MokeScroll#decide}（纯函数、有单测）。这里只负责把结论
      * 落到具体动作上。关键边界是「全屏程序内滑动」那三档**只在备用屏内生效**——主屏幕永远滚
      * 本地历史，否则在 shell 提示符上滑动会翻命令历史（方向键）或把 {@code \033[M…} 打进
-     * 命令行（滚轮），而那里恰恰有真正可滚的 scrollback。
+     * 命令行（滚轮），而那里恰恰有真正可滚的 scrollback。备用屏（tmux）里只要本地还留着
+     * 已经滚出屏幕的行，滑动同样滚这段历史，不发方向键。
      */
+    private int mokeScrollAction() {
+        boolean hasLocalHistory = mTopRow != 0 || mEmulator.getScreen().getActiveTranscriptRows() > 0;
+        return MokeScroll.decide(
+            mokeScrollMode,
+            mEmulator.isAlternateBufferActive(),
+            mEmulator.isMouseTrackingActive(),
+            mokeMoshSession,
+            mEmulator.isBracketedPasteMode(),
+            hasLocalHistory
+        );
+    }
+
     void doScroll(MotionEvent event, int rowsDown) {
         boolean up = rowsDown < 0;
         int amount = Math.abs(rowsDown);
         for (int i = 0; i < amount; i++) {
-            int action = MokeScroll.decide(
-                mokeScrollMode,
-                mEmulator.isAlternateBufferActive(),
-                mEmulator.isMouseTrackingActive(),
-                mokeMoshSession,
-                mEmulator.isBracketedPasteMode()
-            );
+            int action = mokeScrollAction();
             switch (action) {
                 case MokeScroll.ACTION_ARROWS:
                     handleKeyCode(up ? KeyEvent.KEYCODE_DPAD_UP : KeyEvent.KEYCODE_DPAD_DOWN, 0);

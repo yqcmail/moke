@@ -164,12 +164,16 @@ public final class TerminalEmulator {
     /** The normal screen buffer. Stores the characters that appear on the screen of the emulated terminal. */
     private final TerminalBuffer mMainBuffer;
     /**
-     * The alternate screen buffer, exactly as large as the display and contains no additional saved lines (so that when
-     * the alternate screen buffer is active, you cannot scroll back to view saved lines).
+     * The alternate screen buffer. xterm sizes this to the display and drops lines that scroll off, which
+     * made a swipe inside tmux send arrow keys instead of reviewing output that had already appeared.
+     * moke keeps the same transcript capacity as the main buffer so that history can be scrolled locally.
      * <p>
      * See http://www.xfree86.org/current/ctlseqs.html#The%20Alternate%20Screen%20Buffer
      */
     final TerminalBuffer mAltBuffer;
+
+    /** Total rows (screen + scrollback) allocated for both the main and alternate buffers. */
+    private final int mTotalBufferRows;
     /** The current screen buffer, pointing at either {@link #mMainBuffer} or {@link #mAltBuffer}. */
     private TerminalBuffer mScreen;
 
@@ -331,8 +335,9 @@ public final class TerminalEmulator {
 
     public TerminalEmulator(TerminalOutput session, int columns, int rows, int cellWidthPixels, int cellHeightPixels, Integer transcriptRows, TerminalSessionClient client) {
         mSession = session;
-        mScreen = mMainBuffer = new TerminalBuffer(columns, getTerminalTranscriptRows(transcriptRows), rows);
-        mAltBuffer = new TerminalBuffer(columns, rows, rows);
+        mTotalBufferRows = getTerminalTranscriptRows(transcriptRows);
+        mScreen = mMainBuffer = new TerminalBuffer(columns, mTotalBufferRows, rows);
+        mAltBuffer = new TerminalBuffer(columns, mTotalBufferRows, rows);
         mClient = client;
         mRows = rows;
         mColumns = columns;
@@ -419,8 +424,9 @@ public final class TerminalEmulator {
 
     private void resizeScreen() {
         final int[] cursor = {mCursorCol, mCursorRow};
-        int newTotalRows = (mScreen == mAltBuffer) ? mRows : mMainBuffer.mTotalRows;
-        mScreen.resize(mColumns, mRows, newTotalRows, cursor, getStyle(), isAlternateBufferActive());
+        // Keep transcript capacity on the alternate buffer too. Collapsing it to mRows
+        // discarded lines the user had already seen (tmux) and a later resize wiped them again.
+        mScreen.resize(mColumns, mRows, mTotalBufferRows, cursor, getStyle(), false);
         mCursorCol = cursor[0];
         mCursorRow = cursor[1];
     }
@@ -1283,9 +1289,12 @@ public final class TerminalEmulator {
                     }
                     // Check if buffer size needs to be updated:
                     if (resized) resizeScreen();
-                    // Clear new screen if alt buffer:
-                    if (newScreen == mAltBuffer)
+                    // Clear new screen if alt buffer. Also drop any scrollback left by the
+                    // previous full-screen program so this session starts at its own output.
+                    if (newScreen == mAltBuffer) {
+                        newScreen.clearTranscript();
                         newScreen.blockSet(0, 0, mColumns, mRows, ' ', getStyle());
+                    }
                 }
                 break;
             }
@@ -1457,6 +1466,7 @@ public final class TerminalEmulator {
             case 'c': // RIS - Reset to Initial State (http://vt100.net/docs/vt510-rm/RIS).
                 reset();
                 mMainBuffer.clearTranscript();
+                mAltBuffer.clearTranscript();
                 blockClear(0, 0, mColumns, mRows);
                 setCursorPosition(0, 0);
                 break;
@@ -1613,7 +1623,10 @@ public final class TerminalEmulator {
                         blockClear(0, 0, mColumns, mRows);
                         break;
                     case 3: // Delete all lines saved in the scrollback buffer (xterm etc)
+                        // xterm clears the normal buffer's scrollback even when the alternate
+                        // screen is active. Also drop the alternate scrollback the user can swipe.
                         mMainBuffer.clearTranscript();
+                        if (mScreen == mAltBuffer) mAltBuffer.clearTranscript();
                         break;
                     default:
                         unknownSequence(b);

@@ -172,9 +172,10 @@ public abstract class TerminalTestCase extends TestCase {
 					screen.mColumns, currentColumn);
 		}
 
-		assertEquals("The alt buffer should have have no history", mTerminal.mAltBuffer.mTotalRows, mTerminal.mAltBuffer.mScreenRows);
+		assertTrue("The alt buffer should keep scrollback room",
+				mTerminal.mAltBuffer.mTotalRows > mTerminal.mAltBuffer.mScreenRows);
 		if (mTerminal.isAlternateBufferActive()) {
-			assertEquals("The alt buffer should be the same size as the screen", mTerminal.mRows, mTerminal.mAltBuffer.mTotalRows);
+			assertEquals("The alt buffer screen should match the terminal", mTerminal.mRows, mTerminal.mAltBuffer.mScreenRows);
 		}
 
 		return this;

@@ -371,7 +371,7 @@
     <string name="scroll_mode_smart">智能</string>
     <string name="scroll_mode_wheel">始终发滚轮</string>
     <string name="scroll_mode_arrows">始终发方向键</string>
-    <string name="scroll_mode_hint">智能（推荐）：远端开了鼠标滚动就发滚轮；普通输出滚本地历史；判不出来时什么都不发，避免方向键去翻命令历史。\n始终发滚轮：远端支持鼠标但当前界面没开启跟踪时可试。\n始终发方向键：翻页器（less、man、vim）滚不动时用它——尤其是 mosh 会话，mosh 不传递前台程序信息，只能由你指定。</string>
+    <string name="scroll_mode_hint">智能（推荐）：已经滚出屏幕的内容，滑动就在本地回看，不发方向键——tmux 里也一样。只有全屏程序正在跟踪鼠标、且没有可回看的本地历史时才发滚轮。没有历史、远端又没要鼠标时什么都不发。\n始终发滚轮：远端支持鼠标但当前界面没开启跟踪时可试。\n始终发方向键：翻页器（less、man、vim）需要远端翻页、而不是回看本地已显示内容时用它——尤其是 mosh 会话，mosh 不传递前台程序信息，只能由你指定。</string>
     <string name="include_prerelease">包含预览版</string>
     <string name="include_prerelease_sub">检查更新时也算上 rc 预览版。预览版用于抢先验证新功能，可能不稳定。</string>
     <string name="github_repo">GitHub 仓库</string>
